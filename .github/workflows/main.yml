@@ -18,7 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
+  # -----------------------
+  # 1) Lint JavaScript
+  # -----------------------
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -48,17 +50,19 @@ jobs:
           cat <<'BOOTSTRAP' > test-bootstrap.js
           // Spin up a DOM so script.js doesn’t crash
           require('jsdom-global')();
-          // Expose Chai globals (expect/should/assert) so tests don’t have to import
+
+          // Expose Chai globally
           const chai = require('chai');
           global.chai = chai;
           global.expect = chai.expect;
           global.assert = chai.assert;
-          // Fake convertButton so script.js’ event‑binding doesn’t throw
+
+          // Fake convertButton so script.js’ event-binding doesn’t throw
           const btn = document.createElement('button');
           btn.id = 'convertButton';
           document.body.appendChild(btn);
-          // Finally, load application code so helpers are present for tests
-          // Load application code into the global context so its helper functions are visible
+
+          // Load application code in the global scope
           const fs = require('fs');
           const vm = require('vm');
           vm.runInThisContext(fs.readFileSync('./script.js'), { filename: 'script.js' });
@@ -71,15 +75,16 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
       - name: Copy public assets
         run: |
           mkdir -p public
           cp index.html styles.css script.js public/
       - name: Upload static site artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v1
         with:
           path: public
-          name: github-pages
 
   deploy:
     runs-on: ubuntu-latest
@@ -90,6 +95,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages
+        uses: actions/deploy-pages@v1
