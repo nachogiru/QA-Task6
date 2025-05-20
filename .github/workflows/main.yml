@@ -18,7 +18,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -32,9 +31,6 @@ jobs:
       - name: Lint source and test files
         run: npx eslint --ext .js script.js tests.js || true
 
-  # -----------------------
-  # 2) Run Mocha/Chai unit-tests in a JSDOM shell
-  # -----------------------
   test:
     runs-on: ubuntu-latest
     needs: lint
@@ -46,13 +42,21 @@ jobs:
       - name: Install test dependencies
         run: |
           npm install --no-save mocha chai jsdom jsdom-global
-      - name: Create bootstrap file (gives script.js a fake DOM)
+      - name: Create bootstrap file (fake DOM & testing globals)
         run: |
           cat <<'BOOTSTRAP' > test-bootstrap.js
+          // Spin up a DOM so script.js doesn’t crash
           require('jsdom-global')();
+          // Expose Chai globals (expect/should/assert) so tests don’t have to import
+          const chai = require('chai');
+          global.chai = chai;
+          global.expect = chai.expect;
+          global.assert = chai.assert;
+          // Fake convertButton so script.js’ event‑binding doesn’t throw
           const btn = document.createElement('button');
           btn.id = 'convertButton';
           document.body.appendChild(btn);
+          // Finally, load application code so helpers are present for tests
           require('./script');
           BOOTSTRAP
       - name: Run unit tests
