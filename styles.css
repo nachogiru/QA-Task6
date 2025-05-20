@@ -1,0 +1,84 @@
+/* Reset default margins and paddings */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Apply the Google Font globally */
+body {
+  font-family: 'Roboto', sans-serif;
+  /* Use a pleasing gradient for the background */
+  background: linear-gradient(135deg, #74ABE2, #5563DE);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+/* Container styling for the converter card */
+.container {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 40px 30px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+/* Header styling */
+.container h1 {
+  font-size: 2rem;
+  color: #333333;
+  margin-bottom: 20px;
+}
+
+/* Styling for the form elements */
+.container select,
+.container input[type="text"],
+.container button {
+  width: 100%;
+  padding: 12px 15px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Focus state for select and input */
+.container select:focus,
+.container input[type="text"]:focus {
+  outline: none;
+  border-color: #5563DE;
+  box-shadow: 0 0 8px rgba(85, 99, 222, 0.4);
+}
+
+/* Button styling */
+.container button {
+  background: #5563DE;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.container button:hover {
+  background: #4652b8;
+}
+
+/* Styling for the result message */
+.result {
+  font-size: 1.25rem;
+  color: #333333;
+  margin-top: 20px;
+}
+
+/* Styling for error messages */
+.error {
+  color: #E74C3C;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+

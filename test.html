@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Number Converter Tests</title>
+  <!-- Mocha CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mocha/10.2.0/mocha.min.css" />
+</head>
+<body>
+  <!-- Container where Mocha will display the test results -->
+  <div id="mocha"></div>
+
+  <!-- Load Mocha and Chai libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/10.2.0/mocha.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chai/4.3.7/chai.min.js"></script>
+  
+  <!-- Set up Mocha in BDD mode -->
+  <script>
+    mocha.setup('bdd');
+  </script>
+  
+  <!-- Load your website library (conversion functions) -->
+  <script src="script.js"></script>
+  
+  <!-- Load the test implementations -->
+  <script src="tests.js"></script>
+  
+  <!-- Run the tests -->
+  <script>
+    mocha.run();
+  </script>
+</body>
+</html>
