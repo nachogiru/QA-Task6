@@ -26,12 +26,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
-      - name: Install ESLint (no local deps required)
-        run: npm install --save-dev eslint
+      - name: Install ESLint
+        run: |
+          npm install --no-save eslint
       - name: Lint source and test files
-        run: npx eslint --ext .js script.js tests.js || true # don’t fail build on first lint attempt – warnings only
+        run: npx eslint --ext .js script.js tests.js || true
 
+  # -----------------------
+  # 2) Run Mocha/Chai unit-tests in a JSDOM shell
+  # -----------------------
   test:
     runs-on: ubuntu-latest
     needs: lint
@@ -40,18 +43,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
       - name: Install test dependencies
-        run: npm install --save-dev mocha chai jsdom jsdom-global
+        run: |
+          npm install --no-save mocha chai jsdom jsdom-global
       - name: Create bootstrap file (gives script.js a fake DOM)
         run: |
           cat <<'BOOTSTRAP' > test-bootstrap.js
           require('jsdom-global')();
-          // Fake convert button so addEventListener call in script.js does not crash
           const btn = document.createElement('button');
           btn.id = 'convertButton';
           document.body.appendChild(btn);
-          // Load application code so its helpers are available globally
           require('./script');
           BOOTSTRAP
       - name: Run unit tests
@@ -66,7 +67,7 @@ jobs:
         run: |
           mkdir -p public
           cp index.html styles.css script.js public/
-      - name: Upload static site artifact for GitHub Pages (v4)
+      - name: Upload static site artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v4
         with:
           path: public
