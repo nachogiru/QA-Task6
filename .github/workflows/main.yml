@@ -7,7 +7,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
@@ -18,9 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # -----------------------
-  # 1) Lint JavaScript
-  # -----------------------
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +30,7 @@ jobs:
           npm install --no-save eslint
       - name: Lint source and test files
         run: npx eslint --ext .js script.js tests.js || true
+
 
   test:
     runs-on: ubuntu-latest
@@ -69,6 +67,7 @@ jobs:
           BOOTSTRAP
       - name: Run unit tests
         run: npx mocha --require ./test-bootstrap.js tests.js
+
 
   build:
     runs-on: ubuntu-latest
