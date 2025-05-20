@@ -1,0 +1,86 @@
+
+name: Roman Converter CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install ESLint (no local deps required)
+        run: npm install --save-dev eslint
+      - name: Lint source and test files
+        run: npx eslint --ext .js script.js tests.js || true # don’t fail build on first lint attempt – warnings only
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install test dependencies
+        run: npm install --save-dev mocha chai jsdom jsdom-global
+      - name: Create bootstrap file (gives script.js a fake DOM)
+        run: |
+          cat <<'BOOTSTRAP' > test-bootstrap.js
+          require('jsdom-global')();
+          // Fake convert button so addEventListener call in script.js does not crash
+          const btn = document.createElement('button');
+          btn.id = 'convertButton';
+          document.body.appendChild(btn);
+          // Load application code so its helpers are available globally
+          require('./script');
+          BOOTSTRAP
+      - name: Run unit tests
+        run: npx mocha --require ./test-bootstrap.js tests.js
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy public assets
+        run: |
+          mkdir -p public
+          cp index.html styles.css script.js public/
+      - name: Upload static site artifact for GitHub Pages (v4)
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+          name: github-pages
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages
