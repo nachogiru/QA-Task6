@@ -7,6 +7,7 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
@@ -30,7 +31,6 @@ jobs:
           npm install --no-save eslint
       - name: Lint source and test files
         run: npx eslint --ext .js script.js tests.js || true
-
 
   test:
     runs-on: ubuntu-latest
@@ -68,7 +68,9 @@ jobs:
       - name: Run unit tests
         run: npx mocha --require ./test-bootstrap.js tests.js
 
-
+  # -----------------------
+  # 3) Collect static assets for Pages
+  # -----------------------
   build:
     runs-on: ubuntu-latest
     needs: test
@@ -80,9 +82,10 @@ jobs:
         run: |
           mkdir -p public
           cp index.html styles.css script.js public/
-      - name: Upload static site artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v1
+      - name: Upload static site artifact
+        uses: actions/upload-artifact@v4
         with:
+          name: github-pages
           path: public
 
   deploy:
@@ -94,4 +97,6 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@v2
+        with:
+          artifact_name: github-pages
