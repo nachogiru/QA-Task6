@@ -5,14 +5,6 @@
  * @returns {string} The Roman numeral representation.
  * @throws {Error} Throws an error if the number is not within the allowed range.
  */
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-356741230"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){ dataLayer.push(arguments); }
-  gtag('js', new Date());
-  gtag('config', 'G-356741230', { anonymize_ip: true });
-</script>
-
 function integerToRoman(num) {
   // Validate that the number is within the allowed range (1-3999)
   if (num <= 0 || num >= 4000) {
@@ -108,9 +100,22 @@ function romanToInteger(roman) {
 }
 
 /**
+ * Sends a Google Analytics event if the gtag() function is available.
+ *
+ * @param {string} eventName - The name of the event to send.
+ * @param {Object} [params={}] - Additional parameters for the event.
+ */
+function trackGA(eventName, params = {}) {
+  // Only call gtag() if it’s defined (in testing or privacy-blocked browsers, it will be undefined).
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', eventName, params);
+  }
+}
+
+/**
  * Handles the conversion process when the user clicks the convert button.
  * It reads the user input, determines which conversion to perform,
- * and then displays either the result or an error message.
+ * logs meaningful GA events, and then displays either the result or an error message.
  */
 function handleConversion() {
   // Retrieve the selected conversion mode (either 'intToRoman' or 'romanToInt').
@@ -125,6 +130,9 @@ function handleConversion() {
   resultDiv.textContent = '';
   errorDiv.textContent = '';
 
+  // Track the conversion attempt, including mode and raw input.
+  trackGA('conversion_attempt', { mode: mode, input: input });
+
   try {
     if (mode === 'intToRoman') {
       // Attempt to parse the input as an integer.
@@ -135,17 +143,37 @@ function handleConversion() {
       // Convert the integer to a Roman numeral.
       const roman = integerToRoman(num);
       resultDiv.textContent = `Roman Numeral: ${roman}`;
+
+      // Track a successful integer-to-Roman conversion.
+      trackGA('conversion_success', {
+        mode: 'intToRoman',
+        input: input,
+        output: roman
+      });
     } else if (mode === 'romanToInt') {
       // Convert the Roman numeral to an integer.
       const num = romanToInteger(input);
       resultDiv.textContent = `Integer: ${num}`;
+
+      // Track a successful Roman-to-integer conversion.
+      trackGA('conversion_success', {
+        mode: 'romanToInt',
+        input: input,
+        output: num
+      });
     }
   } catch (error) {
     // Display any error messages encountered during conversion.
     errorDiv.textContent = error.message;
+
+    // Track the conversion error, including mode, input, and error message.
+    trackGA('conversion_error', {
+      mode: mode,
+      input: input,
+      message: error.message
+    });
   }
 }
 
 // Attach an event listener to the convert button to trigger the conversion when clicked.
 document.getElementById('convertButton').addEventListener('click', handleConversion);
-
