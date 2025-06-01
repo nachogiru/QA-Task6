@@ -1,112 +1,100 @@
-// Tiny wrapper: call gtag() only if it exists, so CI tests or
-// privacy-blocked browsers don’t choke.
-function track(eventName, params = {}) {
-  const gtagFn =
-    typeof window !== 'undefined' && typeof window.gtag === 'function'
-      ? window.gtag
-      : function () {}; // no-op
-  gtagFn('event', eventName, params);
+/* 0. helpers ------------------------------------------------------- */
+
+function tracker(event, params = {}) {
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', event, params);
+  }
 }
 
-// Quick test: is the string a valid Roman numeral?
-function looksRoman(str) {
+function isRoman(str) {
   return /^[MDCLXVI]+$/i.test(str.trim());
 }
 
-/* ----- 1  Conversion logic ---------------------------------------- */
+/* 1. conversion tables -------------------------------------------- */
 
-const ROMAN_PAIRS = [
-  { value: 1000, numeral: 'M' },
-  { value: 900, numeral: 'CM' },
-  { value: 500, numeral: 'D' },
-  { value: 400, numeral: 'CD' },
-  { value: 100, numeral: 'C' },
-  { value: 90, numeral: 'XC' },
-  { value: 50, numeral: 'L' },
-  { value: 40, numeral: 'XL' },
-  { value: 10, numeral: 'X' },
-  { value: 9, numeral: 'IX' },
-  { value: 5, numeral: 'V' },
-  { value: 4, numeral: 'IV' },
-  { value: 1, numeral: 'I' }
+const MAP = [
+  { v: 1000, r: 'M' },
+  { v: 900,  r: 'CM' },
+  { v: 500,  r: 'D' },
+  { v: 400,  r: 'CD' },
+  { v: 100,  r: 'C' },
+  { v: 90,   r: 'XC' },
+  { v: 50,   r: 'L' },
+  { v: 40,   r: 'XL' },
+  { v: 10,   r: 'X' },
+  { v: 9,    r: 'IX' },
+  { v: 5,    r: 'V' },
+  { v: 4,    r: 'IV' },
+  { v: 1,    r: 'I' }
 ];
 
-function integerToRoman(num) {
-  if (!Number.isInteger(num) || num <= 0 || num >= 4000) return '';
-  let result = '';
-  for (const { value, numeral } of ROMAN_PAIRS) {
-    while (num >= value) {
-      result += numeral;
-      num -= value;
+/* 2. integer → Roman ---------------------------------------------- */
+function integerToRoman(n) {
+  if (!Number.isInteger(n) || n <= 0 || n >= 4000) {
+    throw new TypeError('Integer must be 1 – 3999');
+  }
+
+  let out = '';
+  for (const { v, r } of MAP) {
+    while (n >= v) {
+      out += r;
+      n  -= v;
     }
   }
-  return result;
+  return out;
 }
 
+/* 3. Roman → integer ---------------------------------------------- */
 function romanToInteger(roman) {
+  if (!isRoman(roman)) {
+    throw new TypeError('Invalid Roman numeral');
+  }
+
   roman = roman.toUpperCase();
-  let i = 0,
-    total = 0;
-  for (const { value, numeral } of ROMAN_PAIRS) {
-    while (roman.slice(i, i + numeral.length) === numeral) {
-      total += value;
-      i += numeral.length;
+  let i = 0, total = 0;
+
+  for (const { v, r } of MAP) {
+    while (roman.slice(i, i + r.length) === r) {
+      total += v;
+      i     += r.length;
     }
   }
-  // Basic validity check: if reconverting gives the same numeral, accept.
-  return integerToRoman(total) === roman ? total : 0;
+
+  // final validity check (reject weird over-repetition, etc.)
+  if (integerToRoman(total) !== roman) {
+    throw new TypeError('Invalid Roman numeral');
+  }
+  return total;
 }
 
-/* ----- 2  DOM glue + event tracking ------------------------------- */
-
+/* 4. UI binding + GA events --------------------------------------- */
 if (typeof document !== 'undefined') {
-  const inputEl = document.getElementById('input');
-  const outputEl = document.getElementById('output');
-  const btn = document.getElementById('convertButton');
+  const $in  = document.getElementById('input');
+  const $out = document.getElementById('output');
+  const $btn = document.getElementById('convertButton');
 
-  btn.addEventListener('click', () => {
-    const raw = inputEl.value.trim();
-    track('convert_click', { input_raw: raw });
+  $btn.addEventListener('click', () => {
+    const raw = $in.value.trim();
+    tracker('convert_click', { raw });
 
-    let result = '';
-    let direction = '';
+    try {
+      const result =
+        /^[0-9]+$/.test(raw)
+          ? integerToRoman(parseInt(raw, 10))
+          : romanToInteger(raw);
 
-    if (raw === '') {
-      result = 'Please enter a value.';
-      outputEl.textContent = result;
-      track('convert_error', { reason: 'empty_input' });
-      return;
-    }
-
-    if (/^[0-9]+$/.test(raw)) {
-      // Arabic → Roman
-      const num = parseInt(raw, 10);
-      result = integerToRoman(num);
-      direction = 'arabic_to_roman';
-    } else if (looksRoman(raw)) {
-      // Roman → Arabic
-      const val = romanToInteger(raw);
-      result = val || 'Invalid Roman numeral';
-      direction = 'roman_to_arabic';
-    } else {
-      result = 'Invalid input';
-    }
-
-    outputEl.textContent = result;
-
-    if (result && result !== 'Invalid input' && result !== 'Invalid Roman numeral') {
-      track('convert_success', {
-        direction: direction,
-        input: raw,
-        output: result
+      $out.textContent = result;
+      tracker('convert_success', {
+        direction: /^[0-9]+$/.test(raw) ? 'arabic_to_roman' : 'roman_to_arabic'
       });
-    } else {
-      track('convert_error', { reason: 'validation', input: raw });
+    } catch (err) {
+      $out.textContent = err.message;
+      tracker('convert_error', { message: err.message });
     }
   });
 }
 
-/* ----- 3  Exports for unit tests ---------------------------------- */
+/* 5. exports for tests -------------------------------------------- */
 if (typeof module !== 'undefined') {
-  module.exports = { integerToRoman, romanToInteger, looksRoman };
+  module.exports = { integerToRoman, romanToInteger, isRoman };
 }
