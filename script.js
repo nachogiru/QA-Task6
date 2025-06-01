@@ -141,3 +141,12 @@ function handleConversion() {
 // Attach an event listener to the convert button to trigger the conversion when clicked.
 document.getElementById('convertButton').addEventListener('click', handleConversion);
 
+// user clicked Convert
+gtag('event', 'convert_click', { event_category: 'engagement' });
+
+// successful result
+gtag('event', 'convert_success', {
+  event_category: 'engagement',
+  input_format: isRoman(input) ? 'roman' : 'arabic'
+});
+
