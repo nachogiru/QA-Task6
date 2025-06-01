@@ -1,23 +1,22 @@
 /* ====================================================================
-   Roman-numeral converter – full browser & Node module
+   Roman-numeral converter – browser + Node module
    --------------------------------------------------------------------
    • Converts integers ↔ Roman numerals (1 – 3999, canonical form).
-   • Emits Google Analytics events when gtag() is available.
-   • **All validation errors use the exact wording expected by the
-     project’s Mocha/Chai test-suite** so tests pass cleanly.
+   • Throws with messages required by the Mocha tests.
+   • Sends GA4 events when gtag() exists; becomes no-op otherwise.
    ==================================================================== */
 
 /* --------------------------------------------------------------------
-   0.  Analytics helper – safe no-op during tests or if GA is blocked
+   0.  Analytics helper – safe during tests or if GA is blocked
    -------------------------------------------------------------------- */
-function track(name, params = {}) {
+function track(eventName, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
-    window.gtag('event', name, params);
+    window.gtag('event', eventName, params);
   }
 }
 
 /* --------------------------------------------------------------------
-   1.  Lookup table (largest → smallest) for fast looping conversions
+   1.  Conversion tables & regex helpers
    -------------------------------------------------------------------- */
 const PAIRS = [
   { val: 1000, sym: 'M'  },
@@ -35,16 +34,16 @@ const PAIRS = [
   { val: 1,    sym: 'I'  }
 ];
 
+const ROMAN_REGEX = /^[MDCLXVI]+$/i;
+
 /* --------------------------------------------------------------------
    2.  Integer → Roman
    -------------------------------------------------------------------- */
 function integerToRoman(n) {
-  /* validation ------------------------------------------------------ */
   if (!Number.isInteger(n) || n < 1 || n > 3999) {
     throw new TypeError('The number must be between 1 and 3999.');
   }
 
-  /* main loop ------------------------------------------------------- */
   let out = '';
   for (const { val, sym } of PAIRS) {
     while (n >= val) {
@@ -60,20 +59,16 @@ function integerToRoman(n) {
    -------------------------------------------------------------------- */
 function romanToInteger(str) {
   if (typeof str !== 'string' || str.trim() === '') {
-    /* empty string -------------------------------------------------- */
     throw new TypeError('Input must be a valid Roman numeral.');
   }
 
   const roman = str.toUpperCase().trim();
 
-  /* invalid characters (anything but the seven Roman letters) ------- */
-  if (!/^[MDCLXVI]+$/.test(roman)) {
+  if (!ROMAN_REGEX.test(roman)) {
     throw new TypeError('The Roman numeral contains invalid characters.');
   }
 
-  /* conversion loop ------------------------------------------------- */
-  let i = 0;
-  let total = 0;
+  let i = 0, total = 0;
   for (const { val, sym } of PAIRS) {
     while (roman.slice(i, i + sym.length) === sym) {
       total += val;
@@ -81,9 +76,8 @@ function romanToInteger(str) {
     }
   }
 
-  /* canonical-form check ------------------------------------------- */
+  // Reject non-canonical forms like “IIII” or “VX”
   if (integerToRoman(total) !== roman) {
-    // e.g. “IIII” or “VX” passes the simple regex but is non-canonical
     throw new TypeError('The Roman numeral is not in canonical form.');
   }
 
@@ -91,34 +85,47 @@ function romanToInteger(str) {
 }
 
 /* --------------------------------------------------------------------
-   4.  Browser UI glue (only runs in browsers, skipped in Node tests)
+   4.  Browser UI glue (skips if elements aren’t on the page)
    -------------------------------------------------------------------- */
 if (typeof document !== 'undefined') {
-  const $input  = document.getElementById('input');
-  const $output = document.getElementById('output');
+  const $input  = document.getElementById('inputValue');
+  const $result = document.getElementById('result');
+  const $error  = document.getElementById('error');
+  const $mode   = document.getElementById('conversionMode');
   const $btn    = document.getElementById('convertButton');
 
-  $btn.addEventListener('click', () => {
-    const raw = $input.value.trim();
-    track('convert_click');
+  // Only attach handler when the full UI is present (tests don’t have it)
+  if ($input && $result && $error && $mode && $btn) {
+    $btn.addEventListener('click', () => {
+      const raw   = $input.value.trim();
+      const mode  = $mode.value;                 // 'intToRoman' | 'romanToInt'
+      $result.textContent = '';
+      $error.textContent  = '';
+      track('convert_click');
 
-    try {
-      const result =
-        /^[0-9]+$/.test(raw)
-          ? integerToRoman(parseInt(raw, 10))
-          : romanToInteger(raw);
-
-      track('convert_success', { direction: /^[0-9]+$/.test(raw) ? 'arabic_to_roman' : 'roman_to_arabic' });
-      $output.textContent = result;
-    } catch (err) {
-      track('convert_error', { message: err.message });
-      $output.textContent = err.message;
-    }
-  });
+      try {
+        let output;
+        if (mode === 'intToRoman') {
+          // Expect digits only
+          if (!/^[0-9]+$/.test(raw)) {
+            throw new TypeError('The number must be between 1 and 3999.');
+          }
+          output = integerToRoman(parseInt(raw, 10));
+        } else {
+          output = romanToInteger(raw);
+        }
+        $result.textContent = output;
+        track('convert_success', { direction: mode });
+      } catch (err) {
+        $error.textContent = err.message;
+        track('convert_error', { message: err.message });
+      }
+    });
+  }
 }
 
 /* --------------------------------------------------------------------
-   5.  Node exports (make functions testable under Mocha)
+   5.  Node exports – lets Mocha import the pure functions
    -------------------------------------------------------------------- */
 if (typeof module !== 'undefined') {
   module.exports = { integerToRoman, romanToInteger };
