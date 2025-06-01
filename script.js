@@ -1,81 +1,106 @@
-/* 0. helpers ------------------------------------------------------- */
+/* ====================================================================
+   Roman-numeral converter – full browser & Node module
+   --------------------------------------------------------------------
+   • Converts integers ↔ Roman numerals (1 – 3999, canonical form).
+   • Emits Google Analytics events when gtag() is available.
+   • **All validation errors use the exact wording expected by the
+     project’s Mocha/Chai test-suite** so tests pass cleanly.
+   ==================================================================== */
 
-function tracker(event, params = {}) {
+/* --------------------------------------------------------------------
+   0.  Analytics helper – safe no-op during tests or if GA is blocked
+   -------------------------------------------------------------------- */
+function track(name, params = {}) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
-    window.gtag('event', event, params);
+    window.gtag('event', name, params);
   }
 }
 
-function isRoman(str) {
-  return /^[MDCLXVI]+$/i.test(str.trim());
-}
-
-/* 1. conversion tables -------------------------------------------- */
-
-const MAP = [
-  { v: 1000, r: 'M' },
-  { v: 900,  r: 'CM' },
-  { v: 500,  r: 'D' },
-  { v: 400,  r: 'CD' },
-  { v: 100,  r: 'C' },
-  { v: 90,   r: 'XC' },
-  { v: 50,   r: 'L' },
-  { v: 40,   r: 'XL' },
-  { v: 10,   r: 'X' },
-  { v: 9,    r: 'IX' },
-  { v: 5,    r: 'V' },
-  { v: 4,    r: 'IV' },
-  { v: 1,    r: 'I' }
+/* --------------------------------------------------------------------
+   1.  Lookup table (largest → smallest) for fast looping conversions
+   -------------------------------------------------------------------- */
+const PAIRS = [
+  { val: 1000, sym: 'M'  },
+  { val: 900,  sym: 'CM' },
+  { val: 500,  sym: 'D'  },
+  { val: 400,  sym: 'CD' },
+  { val: 100,  sym: 'C'  },
+  { val: 90,   sym: 'XC' },
+  { val: 50,   sym: 'L'  },
+  { val: 40,   sym: 'XL' },
+  { val: 10,   sym: 'X'  },
+  { val: 9,    sym: 'IX' },
+  { val: 5,    sym: 'V'  },
+  { val: 4,    sym: 'IV' },
+  { val: 1,    sym: 'I'  }
 ];
 
-/* 2. integer → Roman ---------------------------------------------- */
+/* --------------------------------------------------------------------
+   2.  Integer → Roman
+   -------------------------------------------------------------------- */
 function integerToRoman(n) {
-  if (!Number.isInteger(n) || n <= 0 || n >= 4000) {
-    throw new TypeError('Integer must be 1 – 3999');
+  /* validation ------------------------------------------------------ */
+  if (!Number.isInteger(n) || n < 1 || n > 3999) {
+    throw new TypeError('The number must be between 1 and 3999.');
   }
 
+  /* main loop ------------------------------------------------------- */
   let out = '';
-  for (const { v, r } of MAP) {
-    while (n >= v) {
-      out += r;
-      n  -= v;
+  for (const { val, sym } of PAIRS) {
+    while (n >= val) {
+      out += sym;
+      n   -= val;
     }
   }
   return out;
 }
 
-/* 3. Roman → integer ---------------------------------------------- */
-function romanToInteger(roman) {
-  if (!isRoman(roman)) {
-    throw new TypeError('Invalid Roman numeral');
+/* --------------------------------------------------------------------
+   3.  Roman → Integer
+   -------------------------------------------------------------------- */
+function romanToInteger(str) {
+  if (typeof str !== 'string' || str.trim() === '') {
+    /* empty string -------------------------------------------------- */
+    throw new TypeError('Input must be a valid Roman numeral.');
   }
 
-  roman = roman.toUpperCase();
-  let i = 0, total = 0;
+  const roman = str.toUpperCase().trim();
 
-  for (const { v, r } of MAP) {
-    while (roman.slice(i, i + r.length) === r) {
-      total += v;
-      i     += r.length;
+  /* invalid characters (anything but the seven Roman letters) ------- */
+  if (!/^[MDCLXVI]+$/.test(roman)) {
+    throw new TypeError('The Roman numeral contains invalid characters.');
+  }
+
+  /* conversion loop ------------------------------------------------- */
+  let i = 0;
+  let total = 0;
+  for (const { val, sym } of PAIRS) {
+    while (roman.slice(i, i + sym.length) === sym) {
+      total += val;
+      i    += sym.length;
     }
   }
 
-  // final validity check (reject weird over-repetition, etc.)
+  /* canonical-form check ------------------------------------------- */
   if (integerToRoman(total) !== roman) {
-    throw new TypeError('Invalid Roman numeral');
+    // e.g. “IIII” or “VX” passes the simple regex but is non-canonical
+    throw new TypeError('The Roman numeral is not in canonical form.');
   }
+
   return total;
 }
 
-/* 4. UI binding + GA events --------------------------------------- */
+/* --------------------------------------------------------------------
+   4.  Browser UI glue (only runs in browsers, skipped in Node tests)
+   -------------------------------------------------------------------- */
 if (typeof document !== 'undefined') {
-  const $in  = document.getElementById('input');
-  const $out = document.getElementById('output');
-  const $btn = document.getElementById('convertButton');
+  const $input  = document.getElementById('input');
+  const $output = document.getElementById('output');
+  const $btn    = document.getElementById('convertButton');
 
   $btn.addEventListener('click', () => {
-    const raw = $in.value.trim();
-    tracker('convert_click', { raw });
+    const raw = $input.value.trim();
+    track('convert_click');
 
     try {
       const result =
@@ -83,18 +108,18 @@ if (typeof document !== 'undefined') {
           ? integerToRoman(parseInt(raw, 10))
           : romanToInteger(raw);
 
-      $out.textContent = result;
-      tracker('convert_success', {
-        direction: /^[0-9]+$/.test(raw) ? 'arabic_to_roman' : 'roman_to_arabic'
-      });
+      track('convert_success', { direction: /^[0-9]+$/.test(raw) ? 'arabic_to_roman' : 'roman_to_arabic' });
+      $output.textContent = result;
     } catch (err) {
-      $out.textContent = err.message;
-      tracker('convert_error', { message: err.message });
+      track('convert_error', { message: err.message });
+      $output.textContent = err.message;
     }
   });
 }
 
-/* 5. exports for tests -------------------------------------------- */
+/* --------------------------------------------------------------------
+   5.  Node exports (make functions testable under Mocha)
+   -------------------------------------------------------------------- */
 if (typeof module !== 'undefined') {
-  module.exports = { integerToRoman, romanToInteger, isRoman };
+  module.exports = { integerToRoman, romanToInteger };
 }
